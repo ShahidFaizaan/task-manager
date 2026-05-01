@@ -40,10 +40,20 @@ function App() {
     }
   }, [token])
 
+  const currentUserProfile = profiles.find(p => p.id === user?.id)
+  const userRole = currentUserProfile?.role || 'member'
+  const isMember = userRole === 'member'
+
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    'x-user-id': user?.id || '',
+    'x-user-role': userRole
+  })
+
   // --- API Calls to Flask ---
   const fetchProjects = async () => {
     try {
-      const res = await fetch('/api/projects')
+      const res = await fetch('/api/projects', { headers: getHeaders() })
       const data = await res.json()
       if (res.ok) {
         setProjects(data)
@@ -54,7 +64,7 @@ function App() {
 
   const fetchTasks = async () => {
     try {
-      const res = await fetch('/api/tasks')
+      const res = await fetch('/api/tasks', { headers: getHeaders() })
       const data = await res.json()
       if (res.ok) setTasks(data)
     } catch (err) { console.error(err) }
@@ -62,7 +72,7 @@ function App() {
 
   const fetchProfiles = async () => {
     try {
-      const res = await fetch('/api/profiles')
+      const res = await fetch('/api/profiles', { headers: getHeaders() })
       const data = await res.json()
       if (res.ok) setProfiles(data)
     } catch (err) { console.error(err) }
@@ -115,7 +125,7 @@ function App() {
     try {
       const res = await fetch('/api/projects', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ name: newProjectName, board_type: newProjectBoardType })
       })
       if (res.ok) {
@@ -138,7 +148,7 @@ function App() {
 
       const res = await fetch('/api/tasks', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify(payload)
       })
       if (res.ok) {
@@ -157,7 +167,7 @@ function App() {
     try {
       await fetch(`/api/tasks/${taskId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getHeaders(),
         body: JSON.stringify({ status: newStatus })
       })
       fetchTasks()
@@ -165,12 +175,12 @@ function App() {
   }
 
   const handleDeleteTask = async (taskId) => {
-    await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' })
+    await fetch(`/api/tasks/${taskId}`, { method: 'DELETE', headers: getHeaders() })
     fetchTasks()
   }
 
   const handleDeleteProject = async (projectId) => {
-    await fetch(`/api/projects/${projectId}`, { method: 'DELETE' })
+    await fetch(`/api/projects/${projectId}`, { method: 'DELETE', headers: getHeaders() })
     fetchProjects()
     fetchTasks()
   }
@@ -379,41 +389,43 @@ function App() {
                   </div>
 
                   {/* Task Creation Form inline */}
-                  <div className="mb-8 bg-zinc-900/50 p-2 sm:p-3 rounded-2xl border border-zinc-800/80 shadow-sm w-full max-w-5xl">
-                    <form onSubmit={handleCreateTask} className="flex flex-col sm:flex-row gap-3">
-                      <input
-                        type="text"
-                        value={newTaskTitle}
-                        onChange={e => setNewTaskTitle(e.target.value)}
-                        placeholder="What needs to be done?"
-                        className="flex-1 px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/50 transition-all font-medium placeholder-zinc-600"
-                        required
-                      />
-                      <div className="flex gap-2 w-full sm:w-auto">
-                        <select 
-                          value={newTaskAssignee} 
-                          onChange={e => setNewTaskAssignee(e.target.value)}
-                          className="px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-rose-600/50 font-medium w-full sm:w-32 text-sm"
-                        >
-                          <option value="">Unassigned</option>
-                          {profiles.map(p => <option key={p.id} value={p.id}>{p.email.split('@')[0]}</option>)}
-                        </select>
-                        <input 
-                          type="date"
-                          value={newTaskDueDate}
-                          onChange={e => setNewTaskDueDate(e.target.value)}
-                          className="px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-rose-600/50 font-medium w-full sm:w-36 text-sm"
+                  {!isMember && (
+                    <div className="mb-8 bg-zinc-900/50 p-2 sm:p-3 rounded-2xl border border-zinc-800/80 shadow-sm w-full max-w-5xl">
+                      <form onSubmit={handleCreateTask} className="flex flex-col sm:flex-row gap-3">
+                        <input
+                          type="text"
+                          value={newTaskTitle}
+                          onChange={e => setNewTaskTitle(e.target.value)}
+                          placeholder="What needs to be done?"
+                          className="flex-1 px-4 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/50 transition-all font-medium placeholder-zinc-600"
+                          required
                         />
-                        <button 
-                          type="submit" 
-                          onClick={() => setSelectedProjectId(activeProject.id)}
-                          className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-bold text-white bg-rose-800 hover:bg-rose-700 transition-all shadow-md shrink-0"
-                        >
-                          <Plus className="h-4 w-4" /> Add
-                        </button>
-                      </div>
-                    </form>
-                  </div>
+                        <div className="flex gap-2 w-full sm:w-auto">
+                          <select 
+                            value={newTaskAssignee} 
+                            onChange={e => setNewTaskAssignee(e.target.value)}
+                            className="px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-rose-600/50 font-medium w-full sm:w-32 text-sm"
+                          >
+                            <option value="">Unassigned</option>
+                            {profiles.map(p => <option key={p.id} value={p.id}>{p.email.split('@')[0]}</option>)}
+                          </select>
+                          <input 
+                            type="date"
+                            value={newTaskDueDate}
+                            onChange={e => setNewTaskDueDate(e.target.value)}
+                            className="px-3 py-2.5 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-rose-600/50 font-medium w-full sm:w-36 text-sm"
+                          />
+                          <button 
+                            type="submit" 
+                            onClick={() => setSelectedProjectId(activeProject.id)}
+                            className="flex items-center justify-center gap-2 py-2.5 px-5 rounded-xl font-bold text-white bg-rose-800 hover:bg-rose-700 transition-all shadow-md shrink-0"
+                          >
+                            <Plus className="h-4 w-4" /> Add
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  )}
 
                   {/* Kanban Board Layout */}
                   <div className="flex flex-col md:flex-row gap-6 items-start overflow-x-auto pb-8">
@@ -447,9 +459,11 @@ function App() {
                                 <button onClick={() => updateTaskStatus(t.id, 'done')} className="text-xs font-bold bg-rose-800/20 text-rose-400 hover:bg-rose-800/40 px-2.5 py-1.5 rounded-lg transition-colors">
                                   Done
                                 </button>
-                                <button onClick={() => handleDeleteTask(t.id)} className="text-zinc-500 hover:text-red-400 p-1">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                {!isMember && (
+                                  <button onClick={() => handleDeleteTask(t.id)} className="text-zinc-500 hover:text-red-400 p-1">
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -483,9 +497,11 @@ function App() {
                                 <button onClick={() => updateTaskStatus(t.id, 'todo')} className="text-xs font-bold bg-zinc-800 text-zinc-400 hover:bg-zinc-700 px-2.5 py-1.5 rounded-lg transition-colors">
                                   Reopen
                                 </button>
-                                <button onClick={() => handleDeleteTask(t.id)} className="text-zinc-600 hover:text-red-400 p-1">
-                                  <Trash2 className="h-4 w-4" />
-                                </button>
+                                {!isMember && (
+                                  <button onClick={() => handleDeleteTask(t.id)} className="text-zinc-600 hover:text-red-400 p-1">
+                                    <Trash2 className="h-4 w-4" />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -506,29 +522,31 @@ function App() {
                 <p className="text-zinc-400 font-medium mt-2">Manage your team's folders and initiatives.</p>
               </div>
               
-              <div className="bg-zinc-900/50 p-3 sm:p-4 rounded-2xl border border-zinc-800/80 mb-8 w-full">
-                <form onSubmit={handleCreateProject} className="flex flex-col sm:flex-row gap-3">
-                  <input
-                    type="text"
-                    value={newProjectName}
-                    onChange={e => setNewProjectName(e.target.value)}
-                    placeholder="Enter project name..."
-                    className="flex-1 px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/50 transition-all font-medium placeholder-zinc-600"
-                    required
-                  />
-                  <select 
-                    value={newProjectBoardType} 
-                    onChange={e => setNewProjectBoardType(e.target.value)}
-                    className="px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-rose-600/50 font-medium"
-                  >
-                    <option value="kanban">Kanban Board</option>
-                    <option value="scrum">Scrum Board</option>
-                  </select>
-                  <button type="submit" className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-white bg-rose-800 hover:bg-rose-700 transition-colors shadow-md">
-                    <Plus className="h-4 w-4" /> Create
-                  </button>
-                </form>
-              </div>
+              {!isMember && (
+                <div className="bg-zinc-900/50 p-3 sm:p-4 rounded-2xl border border-zinc-800/80 mb-8 w-full">
+                  <form onSubmit={handleCreateProject} className="flex flex-col sm:flex-row gap-3">
+                    <input
+                      type="text"
+                      value={newProjectName}
+                      onChange={e => setNewProjectName(e.target.value)}
+                      placeholder="Enter project name..."
+                      className="flex-1 px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-200 focus:outline-none focus:border-rose-600/50 focus:ring-1 focus:ring-rose-600/50 transition-all font-medium placeholder-zinc-600"
+                      required
+                    />
+                    <select 
+                      value={newProjectBoardType} 
+                      onChange={e => setNewProjectBoardType(e.target.value)}
+                      className="px-4 py-3 bg-zinc-950 border border-zinc-800 rounded-xl text-zinc-300 focus:outline-none focus:border-rose-600/50 font-medium"
+                    >
+                      <option value="kanban">Kanban Board</option>
+                      <option value="scrum">Scrum Board</option>
+                    </select>
+                    <button type="submit" className="flex items-center justify-center gap-2 py-3 px-6 rounded-xl font-bold text-white bg-rose-800 hover:bg-rose-700 transition-colors shadow-md">
+                      <Plus className="h-4 w-4" /> Create
+                    </button>
+                  </form>
+                </div>
+              )}
 
               <div className="bg-zinc-900/40 rounded-2xl border border-zinc-800/80 overflow-hidden shadow-sm">
                 <div className="overflow-x-auto">
@@ -553,9 +571,11 @@ function App() {
                             </span>
                           </td>
                           <td className="py-4 px-6 text-right">
-                            <button onClick={() => handleDeleteProject(p.id)} className="text-zinc-600 hover:text-red-400 p-2 rounded-lg hover:bg-red-400/10 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
-                              <Trash2 className="h-5 w-5" />
-                            </button>
+                            {!isMember && (
+                              <button onClick={() => handleDeleteProject(p.id)} className="text-zinc-600 hover:text-red-400 p-2 rounded-lg hover:bg-red-400/10 transition-colors opacity-100 sm:opacity-0 sm:group-hover:opacity-100">
+                                <Trash2 className="h-5 w-5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       ))}

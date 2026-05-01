@@ -56,11 +56,33 @@ def login():
 # --- PROJECTS ROUTES ---
 @app.route('/api/projects', methods=['GET'])
 def get_projects():
-    res = requests.get(f"{SUPABASE_URL}/rest/v1/projects?order=created_at.desc", headers=headers)
-    return jsonify(res.json()), res.status_code
+    user_id = request.headers.get('x-user-id')
+    user_role = request.headers.get('x-user-role', 'member')
+    
+    if user_role == 'admin':
+        res = requests.get(f"{SUPABASE_URL}/rest/v1/projects?order=created_at.desc", headers=headers)
+        return jsonify(res.json()), res.status_code
+    else:
+        # Member: Find projects they are assigned tasks in
+        tasks_res = requests.get(f"{SUPABASE_URL}/rest/v1/tasks?assigned_to=eq.{user_id}&select=project_id", headers=headers)
+        if tasks_res.status_code != 200:
+            return jsonify({"error": "Failed to fetch tasks"}), 500
+            
+        tasks_data = tasks_res.json()
+        project_ids = list(set([t.get('project_id') for t in tasks_data if t.get('project_id')]))
+        
+        if not project_ids:
+            return jsonify([]), 200
+            
+        ids_str = ",".join(project_ids)
+        res = requests.get(f"{SUPABASE_URL}/rest/v1/projects?id=in.({ids_str})&order=created_at.desc", headers=headers)
+        return jsonify(res.json()), res.status_code
 
 @app.route('/api/projects', methods=['POST'])
 def create_project():
+    if request.headers.get('x-user-role') != 'admin':
+        return jsonify({"error": "Forbidden: Only admins can create projects"}), 403
+        
     data = request.json
     payload = {"name": data.get('name'), "board_type": data.get('board_type', 'kanban')}
     res = requests.post(f"{SUPABASE_URL}/rest/v1/projects", headers=headers, json=payload)
@@ -69,6 +91,8 @@ def create_project():
 
 @app.route('/api/projects/<project_id>', methods=['DELETE'])
 def delete_project(project_id):
+    if request.headers.get('x-user-role') != 'admin':
+        return jsonify({"error": "Forbidden"}), 403
     res = requests.delete(f"{SUPABASE_URL}/rest/v1/projects?id=eq.{project_id}", headers=headers)
     return jsonify({"message": "Deleted"}), 200
 
@@ -80,6 +104,9 @@ def get_tasks():
 
 @app.route('/api/tasks', methods=['POST'])
 def create_task():
+    if request.headers.get('x-user-role') != 'admin':
+        return jsonify({"error": "Forbidden: Only admins can create tasks"}), 403
+        
     data = request.json
     payload = {
         "title": data.get('title'),
@@ -97,6 +124,7 @@ def create_task():
 
 @app.route('/api/tasks/<task_id>', methods=['PUT'])
 def update_task(task_id):
+    # Both admins and members can update tasks (status updates)
     data = request.json
     res = requests.patch(f"{SUPABASE_URL}/rest/v1/tasks?id=eq.{task_id}", headers=headers, json=data)
     data_res = res.json()
@@ -104,6 +132,8 @@ def update_task(task_id):
 
 @app.route('/api/tasks/<task_id>', methods=['DELETE'])
 def delete_task(task_id):
+    if request.headers.get('x-user-role') != 'admin':
+        return jsonify({"error": "Forbidden"}), 403
     res = requests.delete(f"{SUPABASE_URL}/rest/v1/tasks?id=eq.{task_id}", headers=headers)
     return jsonify({"message": "Deleted"}), 200
 
