@@ -18,14 +18,18 @@ headers = {
     "Prefer": "return=representation"
 }
 
-app = Flask(__name__, static_folder='../dist', static_url_path='/')
+app = Flask(__name__, static_folder='static', static_url_path='')
 CORS(app)
 
 @app.route('/')
-def index():
-    if os.path.exists(os.path.join(app.static_folder, 'index.html')):
-        return send_from_directory(app.static_folder, 'index.html')
-    return "Flask API is running! (React build not found in /dist)"
+def serve():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def static_proxy(path):
+    if os.path.exists(os.path.join(app.static_folder, path)):
+        return send_from_directory(app.static_folder, path)
+    return send_from_directory(app.static_folder, 'index.html')
 
 # --- AUTH ROUTES ---
 @app.route('/api/auth/signup', methods=['POST'])
